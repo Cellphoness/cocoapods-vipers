@@ -1,3 +1,7 @@
+require 'cocoapods-vipers/vipers-sync'
+require 'cocoapods'
+include CocoapodsVipers
+
 module Pod
   class Command
     # This is an example of a cocoapods plugin adding a top-level subcommand
@@ -24,20 +28,17 @@ module Pod
         Longer description of cocoapods-vipers.
       DESC
 
-      self.arguments = 'NAME'
-
       def initialize(argv)
-        @name = argv.shift_argument
         super
       end
 
       def validate!
         super
-        help! 'A Pod name is required.' unless @name
       end
 
       def run
-        UI.puts "Add your implementation for the cocoapods-vipers plugin in #{__FILE__}"
+        Pod::UI.puts "Use 'pod install' or 'pod update' to do vipers generate"
+        # CocoapodsVipers::Vipers.new.sync()
       end
     end
   end
