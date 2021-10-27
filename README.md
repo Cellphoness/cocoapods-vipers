@@ -8,4 +8,4 @@ A description of cocoapods-vipers.
 
 ## Usage
 
-    $ pod spec vipers POD_NAME
+    $ pod install
