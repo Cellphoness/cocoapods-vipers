@@ -79,6 +79,18 @@ RUBY
   vipers_ext_func.push(method_text)
 end
 
+def traverse_dir(file_path)
+  if File.directory? file_path
+    Dir.foreach(file_path) do |file|
+      if file != "." && file != ".."
+        traverse_dir(file_path + "/" + file){|x| yield x}
+      end
+    end
+  else
+    yield file_path
+  end
+end
+
 module CocoapodsVipers
     class Vipers
         def sync(paths)
@@ -94,6 +106,12 @@ module CocoapodsVipers
           vipers_json_path = json['podspec_project_vipers_json_path']
           main_project_vipers_json_path = json['main_project_vipers_json_path']
           extension_template_path = json['extension_template_path']
+
+          should_check = false
+          if json['check_json'] == 'true'
+            should_check = true
+          end
+
           # Pod::UI.puts "json: #{json}"
           # Pod::UI.puts "ext_path: #{ext_path}"
           # Pod::UI.puts "pod_paths: #{paths}"
@@ -137,6 +155,7 @@ module CocoapodsVipers
               vipers_params_class.push("  // MARK: - #{data_hash["moduleName"]} Params Class\n")
               vipers_ext_func.push("  // MARK: - #{data_hash["moduleName"]} Extension Func\n")
 
+              cls_array = []
               vipers.each do |viper|
                 # vipers_case.push("    case #{viper["viper"]}")
                 handleClsAndMethod(viper, vipers_params_class, vipers_ext_func)
@@ -144,9 +163,39 @@ module CocoapodsVipers
                   vipers_create_binder.push("      //#{viper["description"]}\n      VIPERBinder.addUnity(className: \"#{viper["class"]}\", identifier: VIPERs.#{viper["viper"]}.identifier)")
                 else
                   vipers_create_binder.push("      //#{viper["description"]}\n      VIPERBinder.addUnity(projectClassName: \"#{data_hash["moduleName"]}.#{viper["class"]}\", identifier: VIPERs.#{viper["viper"]}.identifier)")
-                end 
+                end
+                cls_array.push(viper["class"])
               end
               vipers_create_binder.push("\n")
+
+              if should_check
+                # --check
+                dir_path = spec_path + '/' + data_hash["moduleName"]
+                if spec['spec_name'] == main_project_vipers_json_path
+                dir_path = '.' + '/HycanCommunity/Swift'
+                end
+                traverse_dir(dir_path) { |f|
+                  if f.to_s() =~ /\.swift$/
+                    lineNumber = 0
+                    IO.readlines(f).each { |line| 
+                      cls_array.each do |cls|
+                        if line.index("class #{cls}")
+                          cls_array.delete(cls)
+                          break
+                        end
+                      end
+                      if lineNumber > 100
+                        break
+                      end
+                      lineNumber += 1
+                    }
+                  end                  
+                }
+
+                Pod::UI.puts "以下 Class 在 #{data_hash["moduleName"]} 没找到定义"
+                Pod::UI.puts cls_array.to_s()
+              end
+          
             end
           end
 
