@@ -8,4 +8,12 @@ A description of cocoapods-vipers.
 
 ## Usage
 
+Add this to your Podfile
+
+```
+plugin 'cocoapods-vipers'
+```
+
+then
+
     $ pod install
