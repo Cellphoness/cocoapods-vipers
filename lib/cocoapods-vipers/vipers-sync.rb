@@ -91,6 +91,41 @@ def traverse_dir(file_path)
   end
 end
 
+# 返回 { Bool, String } 是否存在重复的viper
+def check_duplicate_viper(paths, main_path, vipers_json_path) 
+  arr = []
+  paths.each do |spec|
+    json_path = ''
+    if spec['spec_name'] == main_path
+      json_path = spec['spec_name']
+    else
+      spec_json_path = "#{vipers_json_path}"
+      spec_json_path.gsub!("SPECNAME", spec['spec_name'])
+      json_path = spec['spec_path'] + "/" + spec_json_path
+    end
+  
+    if File.exists?(json_path)
+      file = File.read(json_path)
+      data_hash = JSON.parse(file)
+      vipers = data_hash["vipers"]
+
+      vipers.each do |viper|
+        arr.push(viper["viper"])
+      end              
+    
+    end
+  end
+
+  result = arr.detect {|e| arr.rindex(e) != arr.index(e) }
+
+  if result
+    return { 'result' => true, 'viper' => result }
+  else
+    return { 'result' => false }
+  end
+
+end
+
 module CocoapodsVipers
     class Vipers
         def sync(paths)
@@ -106,6 +141,14 @@ module CocoapodsVipers
           vipers_json_path = json['podspec_project_vipers_json_path']
           main_project_vipers_json_path = json['main_project_vipers_json_path']
           extension_template_path = json['extension_template_path']
+          prorocols_template_path = json['prorocols_template_path']
+          protocols_path = json['hycan_service_injects_protocols_path']
+
+          flag = check_duplicate_viper(paths, main_project_vipers_json_path, vipers_json_path)
+
+          if flag['result']
+            raise "viper脚本执行失败，出现重复定义的viper: #{flag['viper']}"
+          end
 
           should_check = false
           if json['check_json'] == 'true'
@@ -116,10 +159,11 @@ module CocoapodsVipers
           # Pod::UI.puts "ext_path: #{ext_path}"
           # Pod::UI.puts "pod_paths: #{paths}"
 
-          # vipers_case = []
+          vipers_case = []
           vipers_create_binder = []
           vipers_params_class = []
           vipers_ext_func = []
+          vipers_call_binder = []
 
           if !paths
             Pod::UI.puts "没有找到对应的业务组件，以Hycan开头的"
@@ -150,14 +194,19 @@ module CocoapodsVipers
               data_hash = JSON.parse(file)
               vipers = data_hash["vipers"]
 
-              # vipers_case.push("// MARK: - #{data_hash["moduleName"]} #{data_hash["description"]}")
+              vipers_case.push("// MARK: - #{data_hash["moduleName"]} #{data_hash["description"]}")
               vipers_create_binder.push("    // MARK: - #{data_hash["moduleName"]} Create Binder")
               vipers_params_class.push("  // MARK: - #{data_hash["moduleName"]} Params Class\n")
               vipers_ext_func.push("  // MARK: - #{data_hash["moduleName"]} Extension Func\n")
-
+              vipers_call_binder.push("        init#{data_hash["moduleName"]}Binder()")
+              vipers_create_binder.push("   public static func init#{data_hash["moduleName"]}Binder() {")
               cls_array = []
               vipers.each do |viper|
-                # vipers_case.push("    case #{viper["viper"]}")
+                if viper["description"] == ""
+                  vipers_case.push("    case #{viper["viper"]}")
+                else
+                  vipers_case.push("    //#{viper["description"]}\n    case #{viper["viper"]}")
+                end
                 handleClsAndMethod(viper, vipers_params_class, vipers_ext_func)
                 if spec['spec_name'] == main_project_vipers_json_path
                   vipers_create_binder.push("      //#{viper["description"]}\n      VIPERBinder.addUnity(className: \"#{viper["class"]}\", identifier: VIPERs.#{viper["viper"]}.identifier)")
@@ -166,8 +215,10 @@ module CocoapodsVipers
                 end
                 cls_array.push(viper["class"])
               end
-              vipers_create_binder.push("\n")
+              vipers_case.push("\n")
+              vipers_create_binder.push("   }\n")
 
+              # 检测模块内是否有未定义的 class
               if should_check
                 # --check
                 dir_path = spec_path + '/' + data_hash["moduleName"]
@@ -199,10 +250,11 @@ module CocoapodsVipers
             end
           end
 
-          # injection_vipers_case = vipers_case.join("\n")
+          injection_vipers_case = vipers_case.join("\n")
           injection_vipers_params_class = vipers_params_class.join("\n")
           injection_vipers_ext_func = vipers_ext_func.join("\n")
           injection_vipers_create_binder = vipers_create_binder.join("\n")
+          injection_vipers_call_binder = vipers_call_binder.join("\n")
 
           template_file = ''
           
@@ -213,13 +265,24 @@ module CocoapodsVipers
           end
           
           template = File.read(template_file)
-
-          # 替换 /** Injection VIPERS case **/ （暂不执行）
-          template.gsub!("/** Injection VIPERBinderHelper autoCreateBinder **/", injection_vipers_create_binder)
+          template.gsub!("/** Injection VIPERBinderHelper autoCreateBinder init **/", injection_vipers_create_binder)
           template.gsub!("/** Injection VIPERs extension **/", injection_vipers_ext_func)
           template.gsub!("/** Injection VIPERParams class **/", injection_vipers_params_class)              
 
           File.open(ext_path, "w") { |file| file.puts template }
+
+          prorocols_template_file = ''
+          
+          if prorocols_template_path
+            prorocols_template_file = prorocols_template_path
+          else
+            prorocols_template_file = File.dirname(__FILE__) + '/template/Protocols.swift' # 脚本所在目录 寻找模板文件
+          end
+          
+          prorocols_template = File.read(prorocols_template_file)
+          prorocols_template.gsub!("/** Injection VIPERS case **/", injection_vipers_case)
+          prorocols_template.gsub!("/** Injection VIPERBinderHelper call init function **/", injection_vipers_call_binder)
+          File.open(protocols_path, "w") { |file| file.puts prorocols_template }
 
           # 1 校验没有重复的 枚举值 enum
           # 2 读取模板的swift文件

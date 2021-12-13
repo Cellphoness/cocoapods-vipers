@@ -3,9 +3,7 @@ import Curry
 //脚本里的模板
 
 extension VIPERBinderHelper {
-    static func initAllBinder() {
-/** Injection VIPERBinderHelper autoCreateBinder **/
-    }
+/** Injection VIPERBinderHelper autoCreateBinder init **/
 }
 
 
