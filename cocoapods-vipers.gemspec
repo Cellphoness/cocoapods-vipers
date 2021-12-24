@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ['1026366384@qq.com']
   spec.description   = %q{tool to generate VIPER enum and medthod for Router}
   spec.summary       = %q{cocoapods-vipers generate VIPER enum and medthod for Router which is in HycanServices}
-  spec.homepage      = 'https://github.com/EXAMPLE/cocoapods-vipers'
+  spec.homepage      = 'https://github.com/Cellphoness/cocoapods-vipers/'
   spec.license       = 'MIT'
 
   spec.files         = Dir['lib/**/*']

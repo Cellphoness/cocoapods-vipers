@@ -5,6 +5,7 @@ module CocoapodsVipers
 
   Pod::HooksManager.register('cocoapods-vipers', :pre_install) do |_context, _|
     paths = []
+    pods = []
     puts 'vipers hook pre_install'
     dependencies = _context.podfile.dependencies
       dependencies.each do |d|
@@ -17,8 +18,9 @@ module CocoapodsVipers
           # puts d.external_source[:path]
           paths.push({ 'spec_path' => d.external_source[:path], 'spec_name' => d.name })
         end
+        pods.push(d.name)
       end
-      CocoapodsVipers::Vipers.new.sync(paths)
+      CocoapodsVipers::Vipers.new.sync(paths, pods)
   end
 
   Pod::HooksManager.register('cocoapods-vipers', :post_install) do |context|

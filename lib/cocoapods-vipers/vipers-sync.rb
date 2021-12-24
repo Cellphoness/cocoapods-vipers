@@ -128,7 +128,7 @@ end
 
 module CocoapodsVipers
     class Vipers
-        def sync(paths)
+        def sync(paths, pods)
           Pod::UI.puts "Synchronizing Vipers yml"
           
           if !File.exists?("vipers_config.yml")
@@ -143,11 +143,28 @@ module CocoapodsVipers
           extension_template_path = json['extension_template_path']
           prorocols_template_path = json['prorocols_template_path']
           protocols_path = json['hycan_service_injects_protocols_path']
+          pod_frameworks_all_path = json['pod_frameworks_all_path']
 
           flag = check_duplicate_viper(paths, main_project_vipers_json_path, vipers_json_path)
 
           if flag['result']
             raise "viper脚本执行失败，出现重复定义的viper: #{flag['viper']}"
+          end
+
+          check_unused_pods = false
+
+          if json['check_unused_pods'] == 'true'
+            check_unused_pods = true
+          end
+
+          framework_array = pods
+
+          if pod_frameworks_all_path 
+            if File.exists?(pod_frameworks_all_path)
+              fileData = File.read(pod_frameworks_all_path)
+              all_framework = JSON.parse(fileData)
+              framework_array = all_framework
+            end
           end
 
           should_check = false
@@ -218,12 +235,51 @@ module CocoapodsVipers
               vipers_case.push("\n")
               vipers_create_binder.push("   }\n")
 
-              # 检测模块内是否有未定义的 class
-              if should_check
-                # --check
+              # 检测模块内未使用的Pods-framework
+              if check_unused_pods
+                # Pod::UI.puts "检测模块内未使用的Pods-framework"
                 dir_path = spec_path + '/' + data_hash["moduleName"]
                 if spec['spec_name'] == main_project_vipers_json_path
-                dir_path = '.' + '/HycanCommunity/Swift'
+                  dir_path = '.' + '/HycanCommunity/Swift'
+                end
+
+                traverse_dir(dir_path) { |f|
+                  if f.to_s() =~ /\.swift$/ || f.to_s() =~ /\.h$/ || f.to_s() =~ /\.m$/
+                    lineNumber = 0
+                    IO.readlines(f).each { |line| 
+                      framework_array.each do |framew|
+                        if line =~ /^[\/\/]/
+                        else
+                          if line.index("#import <#{framew}")
+                            # Pod::UI.puts "in file: #{f} - line in #{data_hash["moduleName"]}"
+                            # Pod::UI.puts line
+                            framework_array.delete(framew)
+                            break
+                          end
+  
+                          if line.index("import #{framew}")
+                            # Pod::UI.puts "in file: #{f} - line in #{data_hash["moduleName"]}"
+                            # Pod::UI.puts line
+                            framework_array.delete(framew)
+                            break
+                          end
+                        end
+                      end
+                      if lineNumber > 200
+                        break
+                      end
+                      lineNumber += 1
+                    }
+                  end                  
+                }
+              end
+
+              # 检测模块内是否有未定义的 class
+              if should_check
+                # Pod::UI.puts "检测模块内是否有未定义的 class"                 
+                dir_path = spec_path + '/' + data_hash["moduleName"]
+                if spec['spec_name'] == main_project_vipers_json_path
+                  dir_path = '.' + '/HycanCommunity/Swift'
                 end
                 traverse_dir(dir_path) { |f|
                   if f.to_s() =~ /\.swift$/
@@ -248,6 +304,11 @@ module CocoapodsVipers
               end
           
             end
+          end
+
+          if check_unused_pods
+            Pod::UI.puts "以下 Pod 的 Framework 在主工程+Pod工程都没找到定义"
+            Pod::UI.puts framework_array.to_s()
           end
 
           injection_vipers_case = vipers_case.join("\n")
