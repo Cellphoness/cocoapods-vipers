@@ -47,7 +47,7 @@ def handleClsAndMethod(viper, vipers_params_class, vipers_ext_func)
 #{assign_lines_text}
     }
     required public init() {
-        print("default init")
+        fatalError("init() has not been implemented")
     }
   }
 RUBY
