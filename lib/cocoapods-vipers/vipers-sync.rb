@@ -104,7 +104,7 @@ def check_duplicate_viper(paths, main_path, vipers_json_path)
       json_path = spec['spec_path'] + "/" + spec_json_path
     end
   
-    if File.exists?(json_path)
+    if File.exist?(json_path)
       file = File.read(json_path)
       data_hash = JSON.parse(file)
       vipers = data_hash["vipers"]
@@ -131,7 +131,7 @@ module CocoapodsVipers
         def sync(paths, pods)
           Pod::UI.puts "Synchronizing Vipers yml"
           
-          if !File.exists?("vipers_config.yml")
+          if !File.exist?("vipers_config.yml")
             Pod::UI.puts "vipers_config.yml not found"
             return
           end
@@ -160,7 +160,7 @@ module CocoapodsVipers
           framework_array = pods
 
           if pod_frameworks_all_path 
-            if File.exists?(pod_frameworks_all_path)
+            if File.exist?(pod_frameworks_all_path)
               fileData = File.read(pod_frameworks_all_path)
               all_framework = JSON.parse(fileData)
               framework_array = all_framework
@@ -203,7 +203,7 @@ module CocoapodsVipers
               json_path = spec_path + "/" + spec_json_path
             end
 
-            if !File.exists?(json_path)
+            if !File.exist?(json_path)
               Pod::UI.puts "没有找到对应#{json_path}下的路由json"
             else
                       
